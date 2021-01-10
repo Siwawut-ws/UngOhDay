@@ -129,7 +129,9 @@ class _SuppliyingState extends State<Suppliying> {
           onTap: () {
             print('YouClick index = $index');
             Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => SuppliyingDetail()));
+                MaterialPageRoute(
+                  builder: (context) => SuppliyingDetail(model: suppliyingModels[index],),
+                ));
           },
           child: Card(
             color: suppliyingModels[index].statusCode == 'Complete'
