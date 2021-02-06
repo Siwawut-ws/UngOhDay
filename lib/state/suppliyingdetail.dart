@@ -3,8 +3,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:ungohday/models/suppliying_model.dart';
 import 'package:ungohday/models/supply_detail_model.dart';
+import 'package:ungohday/models/supply_detail_sqlite_model.dart';
 import 'package:ungohday/state/lot_detail.dart';
 import 'package:ungohday/utility/my_style.dart';
+import 'package:ungohday/utility/sqlite_helper.dart';
 
 class SuppliyingDetail extends StatefulWidget {
   final SuppliyingModel model;
@@ -23,6 +25,8 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
   List<String> lots = List();
   Map<String, int> mapboxQtys = Map();
 
+  List<SupplyDetailSQLiteModel> supplyDetailSQLiteModels = List();
+
   @override
   void initState() {
     // TODO: implement initState
@@ -34,13 +38,18 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
     }
   }
 
+  void calculateRemaining() {
+    
+  }
+
   Future<Null> readData() async {
+    SQLLiteHelper().deleteAllValueSQLite();
+
     String path =
         'http://183.88.213.12/wsvvpack/wsvvpack.asmx/GETSUPPLYDETAIL?DOCID=${suppliyingModel.dOCID}&PDAID=${suppliyingModel.pDAID}&ITEMID=';
     print('path - $path');
     await Dio().get(path).then((value) {
       print('value======>> $value');
-
       int index = 0;
       var result = json.decode(value.data);
       for (var item in result) {
@@ -60,59 +69,76 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
           SupplyDetailModel model = SupplyDetailModel.fromJson(item);
           supplyDetailModels.add(model);
 
-          if (lots.length == 0) {
-            setState(() {
-              lots.add(model.lOT);
-              mapboxQtys[model.lOT] = model.bOXQTY;
-            });
-          } else {
-            bool addStatus = true;
-            for (var item in lots) {
-              if (item == model.lOT) {
-                // Lot Dulucate
-                addStatus = false;
-                mapboxQtys[model.lOT] = mapboxQtys[model.lOT] + model.bOXQTY;
-              }
-            }
-            if (addStatus) {
-              setState(() {
-                // Not Lot Dulucape
-                lots.add(model.lOT);
-                mapboxQtys[model.lOT] = model.bOXQTY;
-              });
-            }
-          }
+          // ##########  Insert SQLite
+          SupplyDetailSQLiteModel modelSQLite = SupplyDetailSQLiteModel(
+              iTEMID: model.iTEMID,
+              dOCID: model.dOCID,
+              sUPPLIER: model.sUPPLIER,
+              bOXID: model.bOXID,
+              bOXQTY: model.bOXQTY,
+              lOT: model.lOT,
+              status: '',
+              typeCode: '');
+
+          SQLLiteHelper().insertValueToSQLite(modelSQLite);
+
           // setState(() {
           //   supplyDetailModels.add(model);
           // });
         }
         index++;
       }
-      print('mapBoxQtys --> ${mapboxQtys.toString()}');
+      // print('mapBoxQtys --> ${mapboxQtys.toString()}');
+      createLot();
     });
+  }
+
+  Future<Null> createLot() async {
+    calculateRemaining();
+    if (supplyDetailSQLiteModels.length != 0) {
+      supplyDetailSQLiteModels.clear();
+      lots.clear();
+    }
+
+    List<SupplyDetailSQLiteModel> models = await SQLLiteHelper().readSQLite();
+
+    for (var model in models) {
+      print('########## model on CreateLot --> ${model.toMap()}');
+
+      if (model.status != 'delete') {
+        supplyDetailSQLiteModels.add(model);
+
+        if (lots.length == 0) {
+          setState(() {
+            lots.add(model.lOT);
+            mapboxQtys[model.lOT] = model.bOXQTY;
+          });
+        } else {
+          bool addStatus = true;
+          for (var item in lots) {
+            if (item == model.lOT) {
+              // Lot Dulucate
+              addStatus = false;
+              mapboxQtys[model.lOT] = mapboxQtys[model.lOT] + model.bOXQTY;
+            }
+          }
+          if (addStatus) {
+            setState(() {
+              // Not Lot Dulucape
+              lots.add(model.lOT);
+              mapboxQtys[model.lOT] = model.bOXQTY;
+            });
+          }
+        }
+      }
+    } // For
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MyStyle().darkBackgroud,
-      appBar: AppBar(
-        actions: [
-          TextButton.icon(
-            onPressed: () {},
-            icon: Icon(
-              Icons.save,
-              color: Colors.white,
-            ),
-            label: Text(
-              'Save',
-              style: MyStyle().titelH3(),
-            ),
-          )
-        ],
-        backgroundColor: MyStyle().darkBackgroud,
-        title: Text('Suppliying'),
-      ),
+      appBar: buildAppBar(),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -128,11 +154,31 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
             Divider(color: Colors.grey),
             buildRow('ITEM', suppliyingModel.item, MyStyle().titelH2()),
             buildRow('Quantity', suppliyingModel.qty, MyStyle().titelH2()),
-            buildRow('Remaining', 'text', MyStyle().titelH2()),
+            buildRow('Remaining', 'text', MyStyle().titelH2()),aaa
             showListView(),
           ],
         ),
       ),
+    );
+  }
+
+  AppBar buildAppBar() {
+    return AppBar(
+      actions: [
+        TextButton.icon(
+          onPressed: () {},
+          icon: Icon(
+            Icons.save,
+            color: Colors.white,
+          ),
+          label: Text(
+            'Save',
+            style: MyStyle().titelH3(),
+          ),
+        )
+      ],
+      backgroundColor: MyStyle().darkBackgroud,
+      title: Text('Suppliying'),
     );
   }
 
@@ -157,9 +203,14 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => LotDetail(
-                            lot: lots[index],models: supplyDetailModels,
+                            lot: lots[index],
+                            models: supplyDetailSQLiteModels,
                           ),
-                        ));
+                        )).then((value) {
+                      setState(() {
+                        createLot();
+                      });
+                    });
                   },
                   child: Card(
                     color: Colors.yellow[700],

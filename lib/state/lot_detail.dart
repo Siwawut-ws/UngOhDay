@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:ungohday/models/supply_detail_model.dart';
+import 'package:ungohday/models/supply_detail_sqlite_model.dart';
 import 'package:ungohday/utility/my_style.dart';
+import 'package:ungohday/utility/sqlite_helper.dart';
 
 class LotDetail extends StatefulWidget {
   final String lot;
-  final List<SupplyDetailModel> models;
+  final List<SupplyDetailSQLiteModel> models;
   LotDetail({Key key, this.lot, this.models}) : super(key: key);
 
   @override
@@ -13,10 +15,10 @@ class LotDetail extends StatefulWidget {
 
 class _LotDetailState extends State<LotDetail> {
   String lot;
-  List<SupplyDetailModel> supplyDetailModels;
-  List<SupplyDetailModel> requireSupplyDetailModels = List();
+  List<SupplyDetailSQLiteModel> supplyDetailModels;
+  List<SupplyDetailSQLiteModel> requireSupplyDetailModels = List();
   int totalQTY = 0;
-
+  String newQuelity;
   @override
   void initState() {
     // TODO: implement initState
@@ -30,10 +32,23 @@ class _LotDetailState extends State<LotDetail> {
     for (var model in supplyDetailModels) {
       if (model.lOT == lot) {
         setState(() {
-          totalQTY = totalQTY + model.bOXQTY;
           requireSupplyDetailModels.add(model);
         });
       }
+    }
+    calulateTotal();
+  }
+
+  void calulateTotal() {
+    totalQTY = 0;
+    if (requireSupplyDetailModels.length != 0) {
+      for (var item in requireSupplyDetailModels) {
+        setState(() {
+          totalQTY = totalQTY + item.bOXQTY;
+        });
+      }
+    } else {
+      Navigator.pop(context);
     }
   }
 
@@ -72,15 +87,112 @@ class _LotDetailState extends State<LotDetail> {
                           ),
                           Expanded(
                             flex: 4,
-                            child: Text(requireSupplyDetailModels[index]
-                                .bOXQTY
-                                .toString()),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(requireSupplyDetailModels[index]
+                                    .bOXQTY
+                                    .toString()),
+                                IconButton(
+                                    icon: Icon(Icons.edit),
+                                    onPressed: () async {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => SimpleDialog(
+                                          title: ListTile(
+                                            leading: MyStyle().showLogo(),
+                                            title: Text('Edit QTY'),
+                                          ),
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Container(
+                                                  width: 100,
+                                                  child: TextFormField(
+                                                    onChanged: (value) {
+                                                      newQuelity = value.trim();
+                                                    },
+                                                    keyboardType:
+                                                        TextInputType.number,
+                                                    decoration: InputDecoration(
+                                                      border:
+                                                          OutlineInputBorder(),
+                                                    ),
+                                                    initialValue:
+                                                        requireSupplyDetailModels[
+                                                                index]
+                                                            .bOXQTY
+                                                            .toString(),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceAround,
+                                              children: [
+                                                TextButton(
+                                                  onPressed: () async {
+                                                    Map<String, dynamic> map =
+                                                        requireSupplyDetailModels[
+                                                                index]
+                                                            .toMap();
+                                                    map['bOXQTY'] =
+                                                        int.parse(newQuelity);
+                                                    setState(() {
+                                                      requireSupplyDetailModels[
+                                                              index] =
+                                                          SupplyDetailSQLiteModel
+                                                              .fromMap(map);
+                                                    });
+                                                    await SQLLiteHelper()
+                                                        .editQuelityAnStatusWhereId(
+                                                            requireSupplyDetailModels[
+                                                                    index]
+                                                                .id,
+                                                            requireSupplyDetailModels[
+                                                                    index]
+                                                                .bOXQTY);
+                                                    calulateTotal();
+                                                    Navigator.pop(context);
+                                                  },
+                                                  child: Text('Edit'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(context),
+                                                  child: Text(
+                                                    'Cancel',
+                                                    style: TextStyle(
+                                                        color: Colors
+                                                            .red.shade700),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                              ],
+                            ),
                           ),
                           Expanded(
                             flex: 1,
                             child: IconButton(
                               icon: Icon(Icons.clear),
-                              onPressed: () {},
+                              onPressed: () async {
+                                print(
+                                    'Click Clear as id ===>> ${requireSupplyDetailModels[index].id}');
+                                await SQLLiteHelper().editStatusWhereId(
+                                    requireSupplyDetailModels[index].id);
+                                setState(() {
+                                  requireSupplyDetailModels.removeAt(index);
+                                });
+                                calulateTotal();
+                              },
                             ),
                           ),
                         ],

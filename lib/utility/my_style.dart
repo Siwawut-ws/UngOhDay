@@ -8,6 +8,8 @@ class MyStyle {
     return Center(child: CircularProgressIndicator());
   }
 
+  Widget showLogo() => Image(image: AssetImage('images/logo.png'));
+
   RoundedRectangleBorder roundType1() {
     return RoundedRectangleBorder(
       side: BorderSide(
@@ -50,16 +52,14 @@ class MyStyle {
     );
   }
 
-TextStyle titelH2green() {
+  TextStyle titelH2green() {
     return TextStyle(
       fontSize: 14,
       color: Colors.green[300],
     );
   }
 
-
-
- TextStyle titelH3() {
+  TextStyle titelH3() {
     return TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.bold,
