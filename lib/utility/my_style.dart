@@ -45,10 +45,13 @@ class MyStyle {
     );
   }
 
+  
+
   TextStyle titelH2red() {
     return TextStyle(
       fontSize: 14,
       color: Colors.redAccent[400],
+      fontWeight: FontWeight.w700,
     );
   }
 

@@ -27,6 +27,8 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
 
   List<SupplyDetailSQLiteModel> supplyDetailSQLiteModels = List();
 
+  int remainingInt = 0;
+
   @override
   void initState() {
     // TODO: implement initState
@@ -39,7 +41,15 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
   }
 
   void calculateRemaining() {
-    
+    print('lots --> ${lots}');
+    //print('################ mapBoxQtys --> ${mapBoxQtys}');
+    remainingInt = 0;
+    for (var item in lots) {
+      setState(() {
+        remainingInt = remainingInt + mapboxQtys[item];
+      });
+    }
+    remainingInt = int.parse(suppliyingModel.qty) - remainingInt;
   }
 
   Future<Null> readData() async {
@@ -102,36 +112,39 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
 
     List<SupplyDetailSQLiteModel> models = await SQLLiteHelper().readSQLite();
 
-    for (var model in models) {
-      print('########## model on CreateLot --> ${model.toMap()}');
+    if (models.length != 0) {
+      for (var model in models) {
+        print('########## model on CreateLot --> ${model.toMap()}');
 
-      if (model.status != 'delete') {
-        supplyDetailSQLiteModels.add(model);
+        if (model.status != 'delete') {
+          supplyDetailSQLiteModels.add(model);
 
-        if (lots.length == 0) {
-          setState(() {
-            lots.add(model.lOT);
-            mapboxQtys[model.lOT] = model.bOXQTY;
-          });
-        } else {
-          bool addStatus = true;
-          for (var item in lots) {
-            if (item == model.lOT) {
-              // Lot Dulucate
-              addStatus = false;
-              mapboxQtys[model.lOT] = mapboxQtys[model.lOT] + model.bOXQTY;
-            }
-          }
-          if (addStatus) {
+          if (lots.length == 0) {
             setState(() {
-              // Not Lot Dulucape
               lots.add(model.lOT);
               mapboxQtys[model.lOT] = model.bOXQTY;
             });
+          } else {
+            bool addStatus = true;
+            for (var item in lots) {
+              if (item == model.lOT) {
+                // Lot Dulucate
+                addStatus = false;
+                mapboxQtys[model.lOT] = mapboxQtys[model.lOT] + model.bOXQTY;
+              }
+            }
+            if (addStatus) {
+              setState(() {
+                // Not Lot Dulucape
+                lots.add(model.lOT);
+                mapboxQtys[model.lOT] = model.bOXQTY;
+              });
+            }
           }
         }
-      }
-    } // For
+      } //For
+      calculateRemaining();
+    }
   }
 
   @override
@@ -154,7 +167,13 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
             Divider(color: Colors.grey),
             buildRow('ITEM', suppliyingModel.item, MyStyle().titelH2()),
             buildRow('Quantity', suppliyingModel.qty, MyStyle().titelH2()),
-            buildRow('Remaining', 'text', MyStyle().titelH2()),aaa
+            buildRow(
+              'Remaining',
+              remainingInt == null
+                  ? suppliyingModel.qty
+                  : remainingInt.toString(),
+              remainingInt == 0 ? MyStyle().titelH2() : MyStyle().titelH2red(),
+            ),
             showListView(),
           ],
         ),
@@ -193,63 +212,68 @@ class _SuppliyingDetailState extends State<SuppliyingDetail> {
                   style: MyStyle().titelH3(),
                 ),
               )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: ScrollPhysics(),
-                itemCount: lots.length,
-                itemBuilder: (context, index) => GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => LotDetail(
-                            lot: lots[index],
-                            models: supplyDetailSQLiteModels,
-                          ),
-                        )).then((value) {
-                      setState(() {
-                        createLot();
-                      });
-                    });
-                  },
-                  child: Card(
-                    color: Colors.yellow[700],
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Text('Lot'),
-                              ),
-                              Expanded(
-                                flex: 5,
-                                child: Text(lots[index]),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Text('Qty'),
-                              ),
-                              Expanded(
-                                flex: 5,
-                                child: Text(
-                                  mapboxQtys[lots[index]].toString(),
-                                ),
-                              ),
-                            ],
-                          )
-                        ],
+            : listViewLot();
+  }
+
+  ListView listViewLot() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: ScrollPhysics(),
+      itemCount: lots.length,
+      itemBuilder: (context, index) => GestureDetector(
+        onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LotDetail(
+                  lot: lots[index],
+                  models: supplyDetailSQLiteModels,
+                ),
+              )).then((value) {
+            setState(() {
+              remainingInt = null;
+              createLot();
+            });
+          });
+        },
+        child: Card(
+          color: Colors.yellow[700],
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text('Lot'),
+                    ),
+                    Expanded(
+                      flex: 5,
+                      child: Text(lots[index]),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text('Qty'),
+                    ),
+                    Expanded(
+                      flex: 5,
+                      child: Text(
+                        mapboxQtys[lots[index]].toString(),
                       ),
                     ),
-                  ),
-                ),
-              );
+                  ],
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Padding buildRow(String title, String value, TextStyle textStyle) {
